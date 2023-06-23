@@ -1,6 +1,7 @@
 #include "main.h"
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
@@ -59,18 +60,20 @@ bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 	datasentflag = 0;
 	return true;
 }
+#define MAX_X 16
+#define MAX_Y 16
 
 bool enable_led_in_matrix(uint8_t x, uint8_t y, uint8_t red, uint8_t green,
 		uint8_t blue) {
 	uint8_t led_index = 0;
 
-	if (x >= 16 || y >= 16) {
+	if (x >= MAX_X || y >= MAX_Y) {
 		return false;
 	}
 	if (y % 2 == 0) {
-		led_index = x + (y * 16);
+		led_index = x + (y * MAX_X);
 	} else {
-		led_index = (y * 16 + 15) - x;
+		led_index = (y * MAX_X + (MAX_X - 1)) - x;
 	}
 
 	return enable_single_led(led_index, red, green, blue);
@@ -81,10 +84,80 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 	datasentflag = 1;
 }
 
+static uint8_t random_color(){
+	return rand() % 255 + 10;
+}
+
+static void change_color(uint8_t *red,uint8_t *green, uint8_t *blue){
+	*red = random_color();
+	*green = random_color();
+	*blue = random_color();
+}
+
+bool dvd_animation(void) {
+	static uint8_t x = 5;
+	static uint8_t y = 0;
+	static uint8_t dir_y = 1;
+	static uint8_t dir_x = 1;
+
+	static uint8_t red = 255;
+	static uint8_t green = 0;
+	static uint8_t blue = 0;
+
+	enable_led_in_matrix(x, y, red, green, blue);
+
+
+	if (x >= (MAX_X - 2)) {
+		change_color(&red,&green,&blue);
+		dir_x = -1;
+		if (dir_y == 1) {
+			dir_y = 1;
+		} else {
+			dir_y = -1;
+		}
+	}
+	if (y == (MAX_Y - 1)) {
+		change_color(&red,&green,&blue);
+		dir_y = -1;
+		if (dir_x == 1) {
+			dir_x = 1;
+		} else {
+			dir_x = -1;
+		}
+	}
+
+	if (x == 1) {
+		change_color(&red,&green,&blue);
+		dir_x = 1;
+		if (dir_y == 1) {
+			dir_y = 1;
+		} else {
+			dir_y = -1;
+		}
+
+	}
+
+	if (y == 0) {
+		change_color(&red,&green,&blue);
+		dir_y = 1;
+		if (dir_x == 1) {
+			dir_x = 1;
+		} else {
+			dir_x = -1;
+		}
+
+	}
+
+	x += dir_x;
+	y += dir_y;
+
+	return true;
+}
+
 int main(void) {
 
 	HAL_Init();
-
+	srand(0);
 	SystemClock_Config();
 
 	MX_GPIO_Init();
@@ -95,12 +168,13 @@ int main(void) {
 	while (1) {
 
 		for (int i = 0; i < MAX_LED; i++) {
+			dvd_animation();
 //			enable_single_led(i, 0xff, 0, 0);
-			enable_led_in_matrix(0,0, 0xff, 0, 0);
-			enable_led_in_matrix(1,0, 0xff, 0, 0);
-			enable_led_in_matrix(1,1, 0xff, 0, 0);
-			enable_led_in_matrix(8,5, 0xff, 0, 0);
-			HAL_Delay(10);
+//			enable_led_in_matrix(0, 0, 0xff, 0, 0);
+//			enable_led_in_matrix(1, 0, 0xff, 0, 0);
+//			enable_led_in_matrix(1, 1, 0xff, 0, 0);
+//			enable_led_in_matrix(8, 5, 0xff, 0, 0);
+			HAL_Delay(100);
 		}
 
 	}
