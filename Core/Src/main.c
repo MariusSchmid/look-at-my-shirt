@@ -22,42 +22,37 @@ static void MX_USART2_UART_Init(void);
 //uint8_t LED_Mod[MAX_LED][4];  // for brightness
 volatile uint8_t datasentflag = 0;
 
-#define TOTAL_SIZE (24*MAX_LED)+50
+#define RESET_TIME 1
+#define TOTAL_SIZE (24*MAX_LED)+RESET_TIME
 //static uint8_t pwm_data[24*MAX_LED+1];
 uint8_t pwm_data[TOTAL_SIZE] = { 0 };
 //static uint8_t pwmData[3*MAX_LED+RESET_TIME];
 
 bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 		uint8_t blue) {
-//	memset(pwm_data,0,sizeof(pwm_data));
-//	memset(pwm_data, 14, TOTAL_SIZE*2);
-
-//	uint32_t indx = TOTAL_SIZE - 50;
-	for (int i = 0; i < TOTAL_SIZE-50; ++i) {
-		pwm_data[i]=14;
-	}
-
 
 	uint32_t color = green << 16 | red << 8 | blue;
 
-	uint8_t *pwm_data_ptr = &pwm_data[led_index*24];
-	for (int i=23; i>=0; i--)
-	{
-		if (color&(1<<i))
-		{
+	for (int i = 0; i < TOTAL_SIZE - RESET_TIME; ++i) {
+		pwm_data[i] = 14;
+	}
+
+	uint8_t *pwm_data_ptr = &pwm_data[led_index * 24];
+	for (int i = 23; i >= 0; i--) {
+		if (color & (1 << i)) {
 			pwm_data_ptr[i] = 26;  // 2/3 of 90
 		}
 
-		else pwm_data_ptr[i] = 14;  // 1/3 of 90
+		else
+			pwm_data_ptr[i] = 14;  // 1/3 of 90
 	}
 
-
-	for (int i = TOTAL_SIZE - 50; i < TOTAL_SIZE; i++) {
+	for (int i = TOTAL_SIZE - RESET_TIME; i < TOTAL_SIZE; i++) {
 		pwm_data[i] = 0;
 	}
 
-
-	HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_1, (uint32_t*) pwm_data, TOTAL_SIZE);
+	HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_1, (uint32_t*) pwm_data,
+	TOTAL_SIZE);
 	while (!datasentflag) {
 	};
 
@@ -65,6 +60,22 @@ bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 	return true;
 }
 
+bool enable_led_in_matrix(uint8_t x, uint8_t y, uint8_t red, uint8_t green,
+		uint8_t blue) {
+	uint8_t led_index = 0;
+
+	if (x >= 16 || y >= 16) {
+		return false;
+	}
+	if (y % 2 == 0) {
+		led_index = x + (y * 16);
+	} else {
+		led_index = (y * 16 + 15) - x;
+	}
+
+	return enable_single_led(led_index, red, green, blue);
+
+}
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 	HAL_TIM_PWM_Stop_DMA(&htim2, TIM_CHANNEL_1);
 	datasentflag = 1;
@@ -84,8 +95,12 @@ int main(void) {
 	while (1) {
 
 		for (int i = 0; i < MAX_LED; i++) {
-			enable_single_led(i, 0xff, 0, 0);
-			HAL_Delay(1);
+//			enable_single_led(i, 0xff, 0, 0);
+			enable_led_in_matrix(0,0, 0xff, 0, 0);
+			enable_led_in_matrix(1,0, 0xff, 0, 0);
+			enable_led_in_matrix(1,1, 0xff, 0, 0);
+			enable_led_in_matrix(8,5, 0xff, 0, 0);
+			HAL_Delay(10);
 		}
 
 	}
