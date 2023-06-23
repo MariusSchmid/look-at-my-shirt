@@ -14,7 +14,7 @@ static void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN 0 */
 //#define MAX_LED 256
-#define MAX_LED 16
+#define MAX_LED 256
 //#define RESET_TIME 2048
 
 //#define USE_BRIGHTNESS 1
@@ -24,7 +24,7 @@ volatile uint8_t datasentflag = 0;
 
 #define TOTAL_SIZE (24*MAX_LED)+50
 //static uint8_t pwm_data[24*MAX_LED+1];
-uint16_t pwm_data[TOTAL_SIZE] = { 0 };
+uint8_t pwm_data[TOTAL_SIZE] = { 0 };
 //static uint8_t pwmData[3*MAX_LED+RESET_TIME];
 
 bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
@@ -40,7 +40,7 @@ bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 
 	uint32_t color = green << 16 | red << 8 | blue;
 
-	uint16_t *pwm_data_ptr = &pwm_data[led_index*24];
+	uint8_t *pwm_data_ptr = &pwm_data[led_index*24];
 	for (int i=23; i>=0; i--)
 	{
 		if (color&(1<<i))
@@ -81,25 +81,14 @@ int main(void) {
 	MX_TIM2_Init();
 	MX_USART2_UART_Init();
 
-	/* USER CODE END 2 */
-
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
 	while (1) {
-		/* USER CODE END WHILE */
+
 		for (int i = 0; i < MAX_LED; i++) {
 			enable_single_led(i, 0xff, 0, 0);
-			HAL_Delay(100);
+			HAL_Delay(1);
 		}
-//
-//		for (int i = 45; i >= 0; i--) {
-//			Set_Brightness(i);
-//			WS2812_Send();
-//			HAL_Delay(1);
-//		}
-		/* USER CODE BEGIN 3 */
+
 	}
-	/* USER CODE END 3 */
 }
 
 /**
