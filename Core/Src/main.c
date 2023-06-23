@@ -13,31 +13,21 @@ static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART2_UART_Init(void);
 
-/* USER CODE BEGIN 0 */
-//#define MAX_LED 256
 #define MAX_LED 256
-//#define RESET_TIME 2048
-
-//#define USE_BRIGHTNESS 1
-//uint8_t LED_Data[MAX_LED][4];
-//uint8_t LED_Mod[MAX_LED][4];  // for brightness
 volatile uint8_t datasentflag = 0;
 
 #define RESET_TIME 1
 #define TOTAL_SIZE (24*MAX_LED)+RESET_TIME
-//static uint8_t pwm_data[24*MAX_LED+1];
 uint8_t pwm_data[TOTAL_SIZE] = { 0 };
-//static uint8_t pwmData[3*MAX_LED+RESET_TIME];
 
-bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
-		uint8_t blue) {
-
-	uint32_t color = green << 16 | red << 8 | blue;
-
+void clear_all_leds(void) {
 	for (int i = 0; i < TOTAL_SIZE - RESET_TIME; ++i) {
 		pwm_data[i] = 14;
 	}
+}
 
+void enable_led(uint8_t led_index, uint8_t red, uint8_t green, uint8_t blue) {
+	uint32_t color = blue << 16 | red << 8 | green;
 	uint8_t *pwm_data_ptr = &pwm_data[led_index * 24];
 	for (int i = 23; i >= 0; i--) {
 		if (color & (1 << i)) {
@@ -47,11 +37,9 @@ bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 		else
 			pwm_data_ptr[i] = 14;  // 1/3 of 90
 	}
+}
 
-	for (int i = TOTAL_SIZE - RESET_TIME; i < TOTAL_SIZE; i++) {
-		pwm_data[i] = 0;
-	}
-
+bool send_ws2812() {
 	HAL_TIM_PWM_Start_DMA(&htim2, TIM_CHANNEL_1, (uint32_t*) pwm_data,
 	TOTAL_SIZE);
 	while (!datasentflag) {
@@ -60,11 +48,23 @@ bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 	datasentflag = 0;
 	return true;
 }
+
+/*!
+ * Enable single led, disable all others led
+ */
+bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
+		uint8_t blue) {
+
+	clear_all_leds();
+	enable_led(led_index, red, green, blue);
+	return send_ws2812();
+
+}
+
 #define MAX_X 16
 #define MAX_Y 16
 
-bool enable_led_in_matrix(uint8_t x, uint8_t y, uint8_t red, uint8_t green,
-		uint8_t blue) {
+uint8_t get_led_index_from_coordinate(uint8_t x, uint8_t y) {
 	uint8_t led_index = 0;
 
 	if (x >= MAX_X || y >= MAX_Y) {
@@ -76,19 +76,22 @@ bool enable_led_in_matrix(uint8_t x, uint8_t y, uint8_t red, uint8_t green,
 		led_index = (y * MAX_X + (MAX_X - 1)) - x;
 	}
 
-	return enable_single_led(led_index, red, green, blue);
-
+	return led_index;
 }
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 	HAL_TIM_PWM_Stop_DMA(&htim2, TIM_CHANNEL_1);
 	datasentflag = 1;
 }
 
-static uint8_t random_color(){
+static uint8_t random_color() {
 	return rand() % 255 + 10;
 }
 
-static void change_color(uint8_t *red,uint8_t *green, uint8_t *blue){
+static uint8_t random_ampl() {
+	return rand() % 17;
+}
+
+static void change_color(uint8_t *red, uint8_t *green, uint8_t *blue) {
 	*red = random_color();
 	*green = random_color();
 	*blue = random_color();
@@ -104,11 +107,11 @@ bool dvd_animation(void) {
 	static uint8_t green = 0;
 	static uint8_t blue = 0;
 
-	enable_led_in_matrix(x, y, red, green, blue);
-
+	uint8_t led_index = get_led_index_from_coordinate(x, y);
+	enable_single_led(led_index, red, green, blue);
 
 	if (x >= (MAX_X - 2)) {
-		change_color(&red,&green,&blue);
+		change_color(&red, &green, &blue);
 		dir_x = -1;
 		if (dir_y == 1) {
 			dir_y = 1;
@@ -117,7 +120,7 @@ bool dvd_animation(void) {
 		}
 	}
 	if (y == (MAX_Y - 1)) {
-		change_color(&red,&green,&blue);
+		change_color(&red, &green, &blue);
 		dir_y = -1;
 		if (dir_x == 1) {
 			dir_x = 1;
@@ -127,7 +130,7 @@ bool dvd_animation(void) {
 	}
 
 	if (x == 1) {
-		change_color(&red,&green,&blue);
+		change_color(&red, &green, &blue);
 		dir_x = 1;
 		if (dir_y == 1) {
 			dir_y = 1;
@@ -138,7 +141,7 @@ bool dvd_animation(void) {
 	}
 
 	if (y == 0) {
-		change_color(&red,&green,&blue);
+		change_color(&red, &green, &blue);
 		dir_y = 1;
 		if (dir_x == 1) {
 			dir_x = 1;
@@ -154,6 +157,29 @@ bool dvd_animation(void) {
 	return true;
 }
 
+#define NUM_FRQ 7
+uint8_t frequence_table[NUM_FRQ];
+
+bool audio_animation(uint8_t frequence_table[NUM_FRQ]) {
+
+	for (int frq_index = 0; frq_index < NUM_FRQ; ++frq_index) {
+		int8_t amplitude = frequence_table[frq_index];
+
+		for (int amp = 0; amp < amplitude; ++amp) {
+			int8_t led_index = get_led_index_from_coordinate((frq_index*2)+2, amp);
+			if (amp > 12) {
+				enable_led(led_index, 0x60, 0, 0); //red
+			} else if (amp > 7) {
+				enable_led(led_index, 0x60, 0x60, 0); //orange
+			} else {
+				enable_led(led_index, 0, 0x60, 0); // green
+			}
+		}
+	}
+	send_ws2812();
+	return true;
+
+}
 int main(void) {
 
 	HAL_Init();
@@ -167,15 +193,21 @@ int main(void) {
 
 	while (1) {
 
-		for (int i = 0; i < MAX_LED; i++) {
-			dvd_animation();
-//			enable_single_led(i, 0xff, 0, 0);
-//			enable_led_in_matrix(0, 0, 0xff, 0, 0);
-//			enable_led_in_matrix(1, 0, 0xff, 0, 0);
-//			enable_led_in_matrix(1, 1, 0xff, 0, 0);
-//			enable_led_in_matrix(8, 5, 0xff, 0, 0);
-			HAL_Delay(100);
+#if 1
+		dvd_animation();
+		HAL_Delay(100);
+#else
+		for (int var = 0; var < NUM_FRQ; ++var) {
+			frequence_table[var] = random_ampl();
 		}
+		frequence_table[0] = 5;
+		clear_all_leds();
+		audio_animation(frequence_table);
+		HAL_Delay(1);
+#endif
+
+
+
 
 	}
 }
