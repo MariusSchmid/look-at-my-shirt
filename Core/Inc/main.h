@@ -61,6 +61,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define VCP_TX_Pin GPIO_PIN_2
 #define VCP_TX_GPIO_Port GPIOA
+#define MSGEQ7_RST_Pin GPIO_PIN_6
+#define MSGEQ7_RST_GPIO_Port GPIOA
+#define MSGEQ7_STROBE_Pin GPIO_PIN_7
+#define MSGEQ7_STROBE_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14

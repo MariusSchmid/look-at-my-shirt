@@ -1,18 +1,68 @@
+/* USER CODE BEGIN Header */
+/**
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2023 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <string.h>
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include <stdbool.h>
-#include <stdlib.h>
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc;
 
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
+
 UART_HandleTypeDef huart2;
 
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_ADC_Init(void);
+/* USER CODE BEGIN PFP */
 
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
 #define MAX_LED 256
 volatile uint8_t datasentflag = 0;
 
@@ -164,9 +214,10 @@ bool audio_animation(uint8_t frequence_table[NUM_FRQ]) {
 
 	for (int frq_index = 0; frq_index < NUM_FRQ; ++frq_index) {
 		int8_t amplitude = frequence_table[frq_index];
-
+		amplitude = amplitude < 16 ? amplitude : 16;
 		for (int amp = 0; amp < amplitude; ++amp) {
-			int8_t led_index = get_led_index_from_coordinate((frq_index*2)+2, amp);
+			int8_t led_index = get_led_index_from_coordinate(
+					(frq_index * 2) + 2, amp);
 			if (amp > 12) {
 				enable_led(led_index, 0x60, 0, 0); //red
 			} else if (amp > 7) {
@@ -180,36 +231,83 @@ bool audio_animation(uint8_t frequence_table[NUM_FRQ]) {
 	return true;
 
 }
-int main(void) {
 
+static void MSGEQ7_reset(void) {
+	HAL_GPIO_WritePin(MSGEQ7_STROBE_GPIO_Port, MSGEQ7_STROBE_Pin, 1);
+	HAL_GPIO_WritePin(MSGEQ7_RST_GPIO_Port, MSGEQ7_RST_Pin, 0);
+	HAL_GPIO_WritePin(MSGEQ7_RST_GPIO_Port, MSGEQ7_RST_Pin, 1);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(MSGEQ7_RST_GPIO_Port, MSGEQ7_RST_Pin, 0);
+}
+
+static uint16_t read_adc(void) {
+	HAL_ADC_Start(&hadc);
+	HAL_ADC_PollForConversion(&hadc, 1);
+	return HAL_ADC_GetValue(&hadc);
+}
+
+//static void set_strobe(void) {
+//
+//}
+
+/* USER CODE END 0 */
+
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
+	/* USER CODE BEGIN 1 */
+
+	/* USER CODE END 1 */
+
+	/* MCU Configuration--------------------------------------------------------*/
+
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
 	HAL_Init();
-	srand(0);
+
+	/* USER CODE BEGIN Init */
+
+	/* USER CODE END Init */
+
+	/* Configure the system clock */
 	SystemClock_Config();
 
+	/* USER CODE BEGIN SysInit */
+
+	/* USER CODE END SysInit */
+
+	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_DMA_Init();
 	MX_TIM2_Init();
 	MX_USART2_UART_Init();
+	MX_ADC_Init();
+	/* USER CODE BEGIN 2 */
 
+	/* USER CODE END 2 */
+
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 	while (1) {
+		MSGEQ7_reset();
+		uint8_t frq[7] = { 0 };
+		for (int i = 0; i < 7; ++i) {
+			HAL_GPIO_WritePin(MSGEQ7_STROBE_GPIO_Port, MSGEQ7_STROBE_Pin, 0);
+			HAL_Delay(1);
+			frq[i] = read_adc() / 200;
+			HAL_GPIO_WritePin(MSGEQ7_STROBE_GPIO_Port, MSGEQ7_STROBE_Pin, 1);
+			HAL_Delay(1);
 
-#if 1
-		dvd_animation();
-		HAL_Delay(100);
-#else
-		for (int var = 0; var < NUM_FRQ; ++var) {
-			frequence_table[var] = random_ampl();
 		}
-		frequence_table[0] = 5;
 		clear_all_leds();
-		audio_animation(frequence_table);
+		audio_animation(frq);
 		HAL_Delay(1);
-#endif
+		/* USER CODE END WHILE */
 
-
-
-
+		/* USER CODE BEGIN 3 */
 	}
+	/* USER CODE END 3 */
 }
 
 /**
@@ -254,6 +352,57 @@ void SystemClock_Config(void) {
 	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
 		Error_Handler();
 	}
+}
+
+/**
+ * @brief ADC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_ADC_Init(void) {
+
+	/* USER CODE BEGIN ADC_Init 0 */
+
+	/* USER CODE END ADC_Init 0 */
+
+	ADC_ChannelConfTypeDef sConfig = { 0 };
+
+	/* USER CODE BEGIN ADC_Init 1 */
+
+	/* USER CODE END ADC_Init 1 */
+	/** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+	 */
+	hadc.Instance = ADC1;
+	hadc.Init.OversamplingMode = DISABLE;
+	hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+	hadc.Init.Resolution = ADC_RESOLUTION_12B;
+	hadc.Init.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+	hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
+	hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc.Init.ContinuousConvMode = DISABLE;
+	hadc.Init.DiscontinuousConvMode = DISABLE;
+	hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+	hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+	hadc.Init.DMAContinuousRequests = DISABLE;
+	hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+	hadc.Init.LowPowerAutoWait = DISABLE;
+	hadc.Init.LowPowerFrequencyMode = DISABLE;
+	hadc.Init.LowPowerAutoPowerOff = DISABLE;
+	if (HAL_ADC_Init(&hadc) != HAL_OK) {
+		Error_Handler();
+	}
+	/** Configure for the selected ADC regular channel to be converted.
+	 */
+	sConfig.Channel = ADC_CHANNEL_0;
+	sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+	if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN ADC_Init 2 */
+
+	/* USER CODE END ADC_Init 2 */
+
 }
 
 /**
@@ -365,7 +514,18 @@ static void MX_GPIO_Init(void) {
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 
 	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOA, MSGEQ7_RST_Pin | MSGEQ7_STROBE_Pin,
+			GPIO_PIN_RESET);
+
+	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+
+	/*Configure GPIO pins : MSGEQ7_RST_Pin MSGEQ7_STROBE_Pin */
+	GPIO_InitStruct.Pin = MSGEQ7_RST_Pin | MSGEQ7_STROBE_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 	/*Configure GPIO pin : LD3_Pin */
 	GPIO_InitStruct.Pin = LD3_Pin;
