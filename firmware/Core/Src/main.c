@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,8 +45,9 @@ ADC_HandleTypeDef hadc;
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
 
+#if 0
 UART_HandleTypeDef huart2;
-
+#endif
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -63,6 +65,9 @@ static void MX_ADC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//select AUDIO_MODE mode or DVD mode
+#define AUDIO_MODE 1
+
 #define MAX_LED 256
 volatile uint8_t datasentflag = 0;
 
@@ -108,7 +113,6 @@ bool enable_single_led(uint8_t led_index, uint8_t red, uint8_t green,
 	clear_all_leds();
 	enable_led(led_index, red, green, blue);
 	return send_ws2812();
-
 }
 
 #define MAX_X 16
@@ -135,10 +139,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 
 static uint8_t random_color() {
 	return rand() % 255 + 10;
-}
-
-static uint8_t random_ampl() {
-	return rand() % 17;
 }
 
 static void change_color(uint8_t *red, uint8_t *green, uint8_t *blue) {
@@ -207,6 +207,7 @@ bool dvd_animation(void) {
 	return true;
 }
 
+#if AUDIO_MODE
 #define NUM_FRQ 7
 uint8_t frequence_table[NUM_FRQ];
 
@@ -245,10 +246,7 @@ static uint16_t read_adc(void) {
 	HAL_ADC_PollForConversion(&hadc, 1);
 	return HAL_ADC_GetValue(&hadc);
 }
-
-//static void set_strobe(void) {
-//
-//}
+#endif
 
 /* USER CODE END 0 */
 
@@ -281,8 +279,12 @@ int main(void) {
 	MX_GPIO_Init();
 	MX_DMA_Init();
 	MX_TIM2_Init();
+#if 0
 	MX_USART2_UART_Init();
+#endif
+#if AUDIO_MODE
 	MX_ADC_Init();
+#endif
 	/* USER CODE BEGIN 2 */
 
 	/* USER CODE END 2 */
@@ -290,6 +292,7 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
+#if AUDIO_MODE
 		MSGEQ7_reset();
 		uint8_t frq[7] = { 0 };
 		for (int i = 0; i < 7; ++i) {
@@ -303,6 +306,11 @@ int main(void) {
 		clear_all_leds();
 		audio_animation(frq);
 		HAL_Delay(1);
+#else
+		dvd_animation();
+		HAL_Delay(50);
+
+#endif
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
@@ -353,7 +361,7 @@ void SystemClock_Config(void) {
 		Error_Handler();
 	}
 }
-
+#if AUDIO_MODE
 /**
  * @brief ADC Initialization Function
  * @param None
@@ -404,7 +412,7 @@ static void MX_ADC_Init(void) {
 	/* USER CODE END ADC_Init 2 */
 
 }
-
+#endif
 /**
  * @brief TIM2 Initialization Function
  * @param None
@@ -452,6 +460,7 @@ static void MX_TIM2_Init(void) {
 
 }
 
+#if 0
 /**
  * @brief USART2 Initialization Function
  * @param None
@@ -484,6 +493,7 @@ static void MX_USART2_UART_Init(void) {
 	/* USER CODE END USART2_Init 2 */
 
 }
+#endif
 
 /**
  * Enable DMA controller clock
